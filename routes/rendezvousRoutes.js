@@ -1,10 +1,11 @@
+// 📁 routes/rendezvousRoutes.js
 import express from "express";
-import supabase from "../services/supabaseClient.js";
+import { supabase } from "../services/supabaseClient.js";
 import { sendNotificationEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
-// ✅ POST - créer un rendez-vous
+// 📌 Création d’un nouveau rendez-vous
 router.post("/", async (req, res) => {
   try {
     const { nom, prenom, its, raison, date, heure, type } = req.body;
@@ -15,22 +16,27 @@ router.post("/", async (req, res) => {
 
     const { data, error } = await supabase
       .from("rendezvous")
-      .insert([{ nom, prenom, its, raison, date, heure, type }]);
+      .insert([{ nom, prenom, its, raison, date, heure, type }])
+      .select()
+      .single();
 
     if (error) {
       console.error("❌ Supabase error:", error);
       return res.status(500).json({ error: "Erreur lors de l'ajout du rendez-vous." });
     }
 
+    // ✅ Envoyer email de confirmation
+    await sendNotificationEmail(data, "confirmation");
+
     console.log("✅ RDV enregistré :", data);
-    res.status(200).json(data[0]);
+    res.status(200).json(data);
   } catch (err) {
     console.error("❌ Erreur serveur:", err);
     res.status(500).json({ error: "Erreur serveur." });
   }
 });
 
-// ✅ GET - tous les rdvs Bhai
+// 📌 Récupération des RDVs Bhai Saheb
 router.get("/bhai", async (req, res) => {
   const { data, error } = await supabase
     .from("rendezvous")
@@ -41,7 +47,7 @@ router.get("/bhai", async (req, res) => {
   res.json(data);
 });
 
-// ✅ GET - tous les rdvs Office
+// 📌 Récupération des RDVs Office Jamaat
 router.get("/office", async (req, res) => {
   const { data, error } = await supabase
     .from("rendezvous")
@@ -52,7 +58,7 @@ router.get("/office", async (req, res) => {
   res.json(data);
 });
 
-// ✅ PUT - mise à jour Bhai
+// 📌 Mise à jour RDV Bhai
 router.put("/bhai/:id", async (req, res) => {
   const { id } = req.params;
   const { date, heure } = req.body;
@@ -61,17 +67,16 @@ router.put("/bhai/:id", async (req, res) => {
     .from("rendezvous")
     .update({ date, heure })
     .eq("id", id)
-    .eq("type", "Bhai Saheb")
-    .select();
+    .select()
+    .single();
 
   if (error) return res.status(500).json({ error: error.message });
 
-  await sendNotificationEmail(data[0], "modification");
-
-  res.json(data[0]);
+  await sendNotificationEmail(data, "modification");
+  res.json(data);
 });
 
-// ✅ PUT - mise à jour Office
+// 📌 Mise à jour RDV Office
 router.put("/office/:id", async (req, res) => {
   const { id } = req.params;
   const { date, heure } = req.body;
@@ -80,17 +85,16 @@ router.put("/office/:id", async (req, res) => {
     .from("rendezvous")
     .update({ date, heure })
     .eq("id", id)
-    .eq("type", "Office Jamaat")
-    .select();
+    .select()
+    .single();
 
   if (error) return res.status(500).json({ error: error.message });
 
-  await sendNotificationEmail(data[0], "modification");
-
-  res.json(data[0]);
+  await sendNotificationEmail(data, "modification");
+  res.json(data);
 });
 
-// ✅ DELETE - suppression Bhai
+// 📌 Suppression RDV Bhai
 router.delete("/bhai/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -98,17 +102,16 @@ router.delete("/bhai/:id", async (req, res) => {
     .from("rendezvous")
     .delete()
     .eq("id", id)
-    .eq("type", "Bhai Saheb")
-    .select();
+    .select()
+    .single();
 
   if (error) return res.status(500).json({ error: error.message });
 
-  await sendNotificationEmail(data[0], "annulation");
-
-  res.json({ message: "Rendez-vous supprimé" });
+  await sendNotificationEmail(data, "annulation");
+  res.json({ success: true });
 });
 
-// ✅ DELETE - suppression Office
+// 📌 Suppression RDV Office
 router.delete("/office/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -116,14 +119,13 @@ router.delete("/office/:id", async (req, res) => {
     .from("rendezvous")
     .delete()
     .eq("id", id)
-    .eq("type", "Office Jamaat")
-    .select();
+    .select()
+    .single();
 
   if (error) return res.status(500).json({ error: error.message });
 
-  await sendNotificationEmail(data[0], "annulation");
-
-  res.json({ message: "Rendez-vous supprimé" });
+  await sendNotificationEmail(data, "annulation");
+  res.json({ success: true });
 });
 
 export default router;
