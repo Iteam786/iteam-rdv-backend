@@ -8,7 +8,7 @@ const router = express.Router();
 // 📌 Création d’un nouveau rendez-vous
 router.post("/", async (req, res) => {
   try {
-    const { nom, prenom, its, raison, date, heure, type } = req.body;
+    const { nom, prenom, its, raison, date, heure, type, email } = req.body;
 
     if (!its || !raison) {
       return res.status(400).json({ error: "ITS et raison sont obligatoires." });
@@ -16,7 +16,7 @@ router.post("/", async (req, res) => {
 
     const { data, error } = await supabase
       .from("rendezvous")
-      .insert([{ nom, prenom, its, raison, date, heure, type }])
+      .insert([{ nom, prenom, its, raison, date, heure, type, email}])
       .select()
       .single();
 
