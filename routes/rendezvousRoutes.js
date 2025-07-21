@@ -9,21 +9,24 @@ router.post("/", async (req, res) => {
   try {
     const { nom, prenom, its, raison, date, heure, type } = req.body;
 
-    if (!nom || !prenom || !its || !raison || !date || !heure || !type) {
-      return res.status(400).json({ error: "Champs manquants" });
+    if (!its || !raison) {
+      return res.status(400).json({ error: "ITS et raison sont obligatoires." });
     }
 
-    const { data, error } = await supabase.from("rendezvous").insert([
-      { nom, prenom, its, raison, date, heure, type },
-    ]).select();
+    const { data, error } = await supabase
+      .from("rendezvous")
+      .insert([{ nom, prenom, its, raison, date, heure, type }]);
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({ error: "Erreur lors de l'ajout du rendez-vous." });
+    }
 
-    await sendNotificationEmail(data[0], "confirmation");
-
-    res.status(201).json(data[0]);
+    console.log("✅ RDV enregistré :", data);
+    res.status(200).json(data[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Erreur serveur:", err);
+    res.status(500).json({ error: "Erreur serveur." });
   }
 });
 
