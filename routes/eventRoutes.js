@@ -1,113 +1,97 @@
-// 📁 routes/eventRoutes.js
 import express from "express";
-import { supabase } from "../services/supabaseClient.js";
+import supabase from "../services/supabaseClient.js";
+import { sendNotificationEmail } from "../utils/mailer.js";
+
 const router = express.Router();
 
-// GET RDVs Bhai
-router.get("/bhai", async (req, res) => {
+// 🔹 GET events (Bhai or Office)
+router.get("/:type", async (req, res) => {
+  const { type } = req.params;
+
   const { data, error } = await supabase
     .from("rendezvous")
-    .select("*")
-    .eq("type", "Bhai Saheb");
+    .select("id, nom, prenom, date, heure, raison, its, email")
+    .eq("type", type);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error("❌ Erreur récupération événements:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
   res.json(data);
 });
 
-// GET RDVs Office
-router.get("/office", async (req, res) => {
+// 🔹 POST new event
+router.post("/:type", async (req, res) => {
+  const { type } = req.params;
+  const { title, start, admin_type } = req.body;
+
+  const [date, heure] = start.split("T");
+
+  const newRdv = {
+    nom: title,
+    date,
+    heure,
+    type,
+    raison: "Ajout manuel (admin)",
+    its: "00000000",
+  };
+
+  const { data, error } = await supabase.from("rendezvous").insert([newRdv]).select();
+
+  if (error) {
+    console.error("❌ Erreur insertion:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  // Pas d'email ici car pas de mail saisi par l'admin
+  res.status(201).json(data[0]);
+});
+
+// 🔹 PUT update event (heure/date)
+router.put("/:type/:id", async (req, res) => {
+  const { id } = req.params;
+  const { date, heure } = req.body;
+
   const { data, error } = await supabase
     .from("rendezvous")
+    .update({ date, heure })
+    .eq("id", id)
+    .select();
+
+  if (error || !data || data.length === 0) {
+    console.error("❌ Erreur mise à jour:", error);
+    return res.status(500).json({ error: error?.message || "Erreur MAJ" });
+  }
+
+  // 🔔 Envoi email modification si email existant
+  await sendNotificationEmail(data[0], "modification");
+
+  res.json({ success: true });
+});
+
+// 🔹 DELETE event
+router.delete("/:type/:id", async (req, res) => {
+  const { id } = req.params;
+
+  // Récupérer les infos avant suppression pour envoyer un email
+  const { data: beforeDelete } = await supabase
+    .from("rendezvous")
     .select("*")
-    .eq("type", "Office Jamaat");
+    .eq("id", id)
+    .single();
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
-
-// POST RDV Bhai
-router.post("/bhai", async (req, res) => {
-  try {
-    const { title, start } = req.body;
-    const date = start.split("T")[0];
-    const heure = start.split("T")[1]?.substring(0, 5);
-
-    const { data, error } = await supabase
-      .from("rendezvous")
-      .insert([{ nom: title, date, heure, type: "Bhai Saheb", its: "00000000", raison: "Créé par admin" }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ message: "Erreur ajout RDV Bhai", error: err.message });
-  }
-});
-
-// POST RDV Office
-router.post("/office", async (req, res) => {
-  try {
-    const { title, start } = req.body;
-    const date = start.split("T")[0];
-    const heure = start.split("T")[1]?.substring(0, 5);
-
-    const { data, error } = await supabase
-      .from("rendezvous")
-      .insert([{ nom: title, date, heure, type: "Office Jamaat", its: "00000000", raison: "Créé par admin" }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ message: "Erreur ajout RDV Office", error: err.message });
-  }
-});
-
-// PUT RDV Bhai
-router.put("/bhai/:id", async (req, res) => {
-  const { date, heure } = req.body;
-  const { id } = req.params;
-
-  const { error } = await supabase
-    .from("rendezvous")
-    .update({ date, heure })
-    .eq("id", id);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
-});
-
-// PUT RDV Office
-router.put("/office/:id", async (req, res) => {
-  const { date, heure } = req.body;
-  const { id } = req.params;
-
-  const { error } = await supabase
-    .from("rendezvous")
-    .update({ date, heure })
-    .eq("id", id);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
-});
-
-// DELETE RDV Bhai
-router.delete("/bhai/:id", async (req, res) => {
-  const { id } = req.params;
   const { error } = await supabase.from("rendezvous").delete().eq("id", id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
-});
+  if (error) {
+    console.error("❌ Erreur suppression:", error);
+    return res.status(500).json({ error: error.message });
+  }
 
-// DELETE RDV Office
-router.delete("/office/:id", async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase.from("rendezvous").delete().eq("id", id);
+  if (beforeDelete) {
+    await sendNotificationEmail(beforeDelete, "annulation");
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
