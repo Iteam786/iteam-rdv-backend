@@ -1,31 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
-import { sendConfirmationEmail } from '../services/emailService.js';
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+import supabase from "../services/supabaseClient.js";
+import { sendMail } from "../services/emailService.js";
 
 export const createRendezvous = async (req, res) => {
-  const { type, prenom, nom, its, raison, horaire } = req.body;
+  const { prenom, nom, its, raison, horaire, type } = req.body;
+  const nomComplet = `${prenom} ${nom}`;
 
-  const start = new Date(horaire);
-  const end = new Date(start.getTime() + 30 * 60000); // 30 minutes
-
-  const { data, error } = await supabase
-    .from('events')
-    .insert([{
-      title: `${prenom} ${nom} (${its})`,
-      start,
-      end,
-      admin_type: type,
-      its,
+  const { data, error } = await supabase.from("rendezvous").insert([
+    {
+      nom: nomComplet,
+      email: its,
+      date: horaire.date,
+      heure: horaire.heure,
+      service: type,
       raison,
-      email: req.body.email // doit être dans form.js aussi
-    }])
-    .select()
-    .single();
+    },
+  ]).select();
 
   if (error) return res.status(500).json({ error });
 
-  await sendConfirmationEmail(data);
+  await sendMail({
+    to: its,
+    subject: "Confirmation RDV",
+    html: `<p>Bonjour ${nomComplet},<br>Votre RDV pour ${type} est confirmé le ${horaire.date} à ${horaire.heure}.</p>`
+  });
 
-  res.status(201).json({ message: 'Rendez-vous enregistré', event: data });
+  res.status(201).json(data[0]);
 };

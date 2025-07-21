@@ -1,70 +1,62 @@
-import { createClient } from '@supabase/supabase-js';
-import { sendConfirmationEmail, sendUpdateEmail, sendCancellationEmail } from '../services/emailService.js';
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+import supabase from "../services/supabaseClient.js";
+import { sendMail } from "../services/emailService.js";
 
 export const getEvents = async (req, res) => {
-  const { adminType } = req.query;
-
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('admin_type', adminType);
-
+  const { type } = req.params;
+  const { data, error } = await supabase.from("rendezvous").select("*").eq("service", type);
   if (error) return res.status(500).json({ error });
-  res.status(200).json(data);
+  res.json(data);
 };
 
 export const createEvent = async (req, res) => {
-  const event = req.body;
-
-  const { data, error } = await supabase
-    .from('events')
-    .insert([event])
-    .select()
-    .single();
-
+  const { title, start, end, admin_type } = req.body;
+  const { data, error } = await supabase.from("rendezvous").insert([
+    { nom: title, date: start.split("T")[0], heure: start.split("T")[1].slice(0, 5), service: admin_type },
+  ]).select();
   if (error) return res.status(500).json({ error });
-
-  // Email confirmation
-  await sendConfirmationEmail(data);
-
-  res.status(201).json(data);
+  res.status(201).json(data[0]);
 };
 
 export const updateEvent = async (req, res) => {
-  const { id } = req.params;
-  const updatedEvent = req.body;
+  const { type, id } = req.params;
+  const { start } = req.body;
+  const newDate = start.split("T")[0];
+  const newHeure = start.split("T")[1].slice(0, 5);
 
   const { data, error } = await supabase
-    .from('events')
-    .update(updatedEvent)
-    .eq('id', id)
-    .select()
-    .single();
+    .from("rendezvous")
+    .update({ date: newDate, heure: newHeure })
+    .eq("id", id)
+    .eq("service", type)
+    .select();
 
   if (error) return res.status(500).json({ error });
 
-  // Email modification
-  await sendUpdateEmail(data);
+  await sendMail({
+    to: data[0].email,
+    subject: "Modification RDV",
+    html: `<p>Bonjour ${data[0].nom},<br>Votre RDV a été modifié au ${newDate} à ${newHeure}.</p>`
+  });
 
-  res.status(200).json(data);
+  res.json(data[0]);
 };
 
 export const deleteEvent = async (req, res) => {
-  const { id } = req.params;
-
+  const { type, id } = req.params;
   const { data, error } = await supabase
-    .from('events')
+    .from("rendezvous")
     .delete()
-    .eq('id', id)
-    .select()
-    .single();
+    .eq("id", id)
+    .eq("service", type)
+    .select();
 
   if (error) return res.status(500).json({ error });
 
-  // Email suppression
-  await sendCancellationEmail(data);
+  await sendMail({
+    to: data[0].email,
+    subject: "Annulation RDV",
+    html: `<p>Bonjour ${data[0].nom},<br>Votre RDV a été annulé.</p>`
+  });
 
-  res.status(200).json({ message: 'Événement supprimé' });
+  res.json({ success: true });
 };

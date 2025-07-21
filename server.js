@@ -1,32 +1,22 @@
-// backend/server.js
+// 📁 backend/server.js
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import rendezvousRoutes from "./routes/rendezvousRoutes.js";
+import eventRoutes from "./routes/eventRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const eventRoutes = require('./routes/eventRoutes');
-const rendezvousRoutes = require('./routes/rendezvousRoutes');
-const path = require('path');
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/rendezvous', rendezvousRoutes);
+app.use("/api/rendezvous", rendezvousRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/auth", authRoutes);
 
-// Route fallback
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/404.html'));
-});
+app.get("/", (req, res) => res.send("✅ Backend Mosquée en ligne"));
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`));
