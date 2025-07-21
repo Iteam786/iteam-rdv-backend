@@ -16,7 +16,12 @@ const transporter = nodemailer.createTransport({
  * @param {"confirmation" | "modification" | "annulation"} type - Type de notification
  */
 export async function sendNotificationEmail(rdv, type) {
-  const { nom, prenom, its, date, heure, raison, type: rdvType } = rdv;
+  const { nom, prenom, its, date, heure, raison, type: rdvType, email } = rdv;
+
+  if (!email) {
+    console.log("❌ Aucun email fourni. Email non envoyé.");
+    return;
+  }
 
   let subject = "";
   let html = "";
@@ -62,14 +67,14 @@ export async function sendNotificationEmail(rdv, type) {
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER, // L'adresse de l'admin, car pas d'email utilisateur
+    to: email,
     subject,
     html,
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 Email "${type}" envoyé avec succès.`);
+    console.log(`📧 Email "${type}" envoyé avec succès à ${email}.`);
   } catch (error) {
     console.error("Erreur envoi email:", error);
   }
