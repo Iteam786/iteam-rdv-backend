@@ -1,6 +1,6 @@
 // 📁 routes/rendezvousRoutes.js
 import express from "express";
-import { supabase } from "../services/supabaseClient.js";
+import supabase from "../services/supabaseClient.js";
 import { sendNotificationEmail } from "../utils/mailer.js";
 
 const router = express.Router();
